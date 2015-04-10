@@ -187,12 +187,14 @@ private:
 		liblas::Header const& header = reader.GetHeader();
 
 		liblas::Bounds<double> bounds = header.GetExtent();
-		double approximatePointsPerTile = 1e8;
+		double approximatePointsPerTile = 1e7;
 		double points = header.GetPointRecordsCount();
 		double volume = (bounds.maxx() - bounds.minx())
 			* (bounds.maxy() - bounds.miny())
 			* (bounds.maxz() - bounds.minz());
-		double spacing = std::pow(points / volume * approximatePointsPerTile, 1.0/3.0);
+		double spacing = std::pow(volume / points * approximatePointsPerTile, 1.0/3.0);
+
+		std::cout << "Spacing: " << spacing << std::endl;
 
 		return spacing;
 	}
