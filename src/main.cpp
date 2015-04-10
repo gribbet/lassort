@@ -127,12 +127,18 @@ public:
 
 	void write(liblas::Writer &writer) {
 		long written = 0;
+		long lastChunk = -1;
 		for(std::map<TileIndex, Tile*>::iterator it = tiles.begin();
 			it != tiles.end(); ++it) {
 			it->second->write(writer);
 			written += it->second->size();
-			std::cout << "Sorted " << (100 * written / count) << "%" << std::endl;
+			if (written / 1000000 != lastChunk) {
+				lastChunk = written / 1000000;
+				std::cout << "Sorted " << (100 * written / count) << "%" << std::endl;
+			}
 		}
+
+		std::cout << "Sorting complete" << std::endl;
 	}
 
 private: 
