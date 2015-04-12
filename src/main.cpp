@@ -36,7 +36,7 @@ private:
 class Tile {
 public:
 	Tile(boost::filesystem::path workDir):
-		count(0),
+		_count(0),
         path(workDir / boost::filesystem::unique_path()),
 		writer(NULL) {
 		ofs.open(path.string(), std::ios::out | std::ios::binary);
@@ -51,7 +51,7 @@ public:
 
 	void add(liblas::Point const &point) {
 		points.push_back(point);
-		count++;
+		_count++;
 	}
 
 	void flush() {
@@ -65,9 +65,13 @@ public:
 		writeHeader();
 	}
 
-	long const size() {
-		return count;
+	long const count() {
+		return _count;
 	}
+    
+    uintmax_t const fileSize() {
+        return boost::filesystem::file_size(path);
+    }
 
 	void write(liblas::Writer &writer) {
 		std::ifstream ifs(path.string(), std::ios::in | std::ios::binary);
@@ -82,7 +86,7 @@ public:
 	}
 
 private:
-	long count;
+	long _count;
 	std::vector<liblas::Point> points;
 	boost::filesystem::path path;
 	std::ofstream ofs;
@@ -90,7 +94,7 @@ private:
 
 	void writeHeader() {
 		liblas::Header header(writer->GetHeader());
-		header.SetPointRecordsCount(count);
+		header.SetPointRecordsCount(count());
 		writer->SetHeader(header);
 		writer->WriteHeader();
 	}
@@ -139,7 +143,7 @@ public:
 		for(std::map<TileIndex, Tile*>::iterator it = tiles.begin();
 			it != tiles.end(); ++it) {
 			it->second->write(writer);
-			written += it->second->size();
+			written += it->second->count();
 			if (written / 1000000 != lastChunk) {
 				lastChunk = written / 1000000;
 				std::cout << "\rSorted " << (100 * written / count) << "%" << std::flush;
@@ -148,6 +152,26 @@ public:
 
 		std::cout << "\rSorted 100%" << std::endl;
 	}
+    
+    long tileCount() {
+        return tiles.size();
+    }
+    
+    long averageTileCount() {
+        long total = 0;
+        for(std::map<TileIndex, Tile*>::iterator it = tiles.begin();
+            it != tiles.end(); ++it)
+            total += it->second->count();
+        return total /= tileCount();
+    }
+    
+    uintmax_t averageTileFileSize() {
+        uintmax_t total = 0;
+        for(std::map<TileIndex, Tile*>::iterator it = tiles.begin();
+            it != tiles.end(); ++it)
+            total += it->second->fileSize();
+        return total /= tileCount();
+    }
 
 private: 
 	const int tileSize;
@@ -191,12 +215,14 @@ public:
         if (tileSize == 0.0)
             tileSize = estimateTileSize(reader);
         
-        std::cout << "Tile size: " << tileSize << std::endl;
-        
 		Grid grid(tileSize);
 		grid.read(reader);
 
 		ifs.close();
+        
+        std::cout << "Total tiles: " << grid.tileCount() << std::endl;
+        std::cout << "Average tile count: " << grid.averageTileCount() << std::endl;
+        std::cout << "Average tile size: " << (grid.averageTileFileSize()/1000000) << "MB" << std::endl;
 
 		std::ofstream ofs(output, std::ios::out | std::ios::binary);
 		liblas::Writer writer(ofs, header);
@@ -220,6 +246,8 @@ private:
 			* (bounds.maxy() - bounds.miny())
 			* (bounds.maxz() - bounds.minz());
 		double tileSize = std::pow(volume / points * approximatePointsPerTile, 1.0/3.0);
+        
+        std::cout << tileSize << std::endl;
 
 		return tileSize;
 	}
