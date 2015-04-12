@@ -1,2 +1,9 @@
 build
 build.sh
+lassort.xcodeproj
+lassort.build
+Debug
+CMakeCache.txt
+CMakeFiles
+CMakeScripts
+cmake_install.cmake
