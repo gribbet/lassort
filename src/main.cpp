@@ -240,14 +240,12 @@ private:
 		liblas::Header const& header = reader.GetHeader();
 
 		liblas::Bounds<double> bounds = header.GetExtent();
-		double approximatePointsPerTile = 1e7;
+		double approximatePointsPerTile = 2e6;
 		double points = header.GetPointRecordsCount();
 		double volume = (bounds.maxx() - bounds.minx())
 			* (bounds.maxy() - bounds.miny())
 			* (bounds.maxz() - bounds.minz());
 		double tileSize = std::pow(volume / points * approximatePointsPerTile, 1.0/3.0);
-        
-        std::cout << tileSize << std::endl;
 
 		return tileSize;
 	}
