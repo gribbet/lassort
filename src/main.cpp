@@ -17,10 +17,10 @@ public:
 	TileIndex(int i, int j, int k): i(i), j(j), k(k) {
 	}
 
-	TileIndex(liblas::Point const &point, double spacing): 
-		i((int) (point.GetX()/spacing)),
-		j((int) (point.GetY()/spacing)),
-		k((int) (point.GetZ()/spacing)) {
+	TileIndex(liblas::Point const &point, double tileSize): 
+		i((int) (point.GetX()/tileSize)),
+		j((int) (point.GetY()/tileSize)),
+		k((int) (point.GetZ()/tileSize)) {
 	}
 
 	bool operator<(const TileIndex& b) const {
@@ -35,9 +35,9 @@ private:
 
 class Tile {
 public:
-	Tile(): 
-		count(0), 
-		path(boost::filesystem::unique_path()),
+	Tile(boost::filesystem::path workDir):
+		count(0),
+        path(workDir / boost::filesystem::unique_path()),
 		writer(NULL) {
 		ofs.open(path.string(), std::ios::out | std::ios::binary);
 	}
@@ -98,7 +98,11 @@ private:
 
 class Grid {
 public:
-	Grid(double spacing): spacing(spacing), count(0) {
+	Grid(double tileSize):
+        tileSize(tileSize),
+        workDir(boost::filesystem::path("temp")),
+        workDirCreated(boost::filesystem::create_directories(workDir)),
+        count(0) {
 	}
 
 	~Grid() {
@@ -107,9 +111,12 @@ public:
 			it != tiles.end(); ++it)
 			delete it->second;
 		tiles.clear();
+        if (workDirCreated)
+            boost::filesystem::remove(workDir);
 	}
 
 	void read(liblas::Reader &reader) {
+        std::cout << "Tiled 0%" << std::flush;
 		liblas::Header header = reader.GetHeader();
 		long total = header.GetPointRecordsCount();
 		long read = 0;
@@ -117,15 +124,16 @@ public:
 			add(reader.GetPoint());
 			if (++read % 1000000 == 0) {
 				flush();
-				std::cout << "Tiled " << (100 * read / total) << "%" << std::endl;
+                std::cout << "\rTiled " << (100 * read / total) << "%" << std::flush;
 			}
 		}
 		flush();
-		std::cout << "Tiling complete" << std::endl;
+		std::cout << "\rTiled 100%" << std::endl;
 		count += read;
 	}
 
 	void write(liblas::Writer &writer) {
+        std::cout << "Sorted 0%" << std::flush;
 		long written = 0;
 		long lastChunk = -1;
 		for(std::map<TileIndex, Tile*>::iterator it = tiles.begin();
@@ -134,22 +142,24 @@ public:
 			written += it->second->size();
 			if (written / 1000000 != lastChunk) {
 				lastChunk = written / 1000000;
-				std::cout << "Sorted " << (100 * written / count) << "%" << std::endl;
+				std::cout << "\rSorted " << (100 * written / count) << "%" << std::flush;
 			}
 		}
 
-		std::cout << "Sorting complete" << std::endl;
+		std::cout << "\rSorted 100%" << std::endl;
 	}
 
 private: 
-	const int spacing;
+	const int tileSize;
+    const boost::filesystem::path workDir;
+    const bool workDirCreated;
 	long count;
 	std::map<TileIndex, Tile*> tiles;
 
 	void add(liblas::Point const &point) {
-		TileIndex index(point, spacing);
+		TileIndex index(point, tileSize);
 		if (tiles.find(index) == tiles.end())
-			tiles[index] = new Tile();
+			tiles[index] = new Tile(workDir);
 		tiles[index]->add(point);
 	}
 
@@ -162,34 +172,45 @@ private:
 
 class Sorter {
 public:
-	Sorter(boost::filesystem::path source, boost::filesystem::path destination): 
-		source(source), destination(destination) {
+    Sorter(std::string input,
+           std::string output,
+           double tileSize = 0.0):
+		input(input),
+        output(output),
+        tileSize(tileSize) {
 	}
 
 	void sort() {
-		std::ifstream ifs(source.string(), std::ios::in | std::ios::binary);
+		std::ifstream ifs(input, std::ios::in | std::ios::binary);
 
 		liblas::ReaderFactory factory;
 		liblas::Reader reader = factory.CreateWithStream(ifs);
 		liblas::Header header = reader.GetHeader();
 		
-		Grid grid(estimateSpacing(reader));
+        double tileSize = this->tileSize;
+        if (tileSize == 0.0)
+            tileSize = estimateTileSize(reader);
+        
+        std::cout << "Tile size: " << tileSize << std::endl;
+        
+		Grid grid(tileSize);
 		grid.read(reader);
 
 		ifs.close();
 
-		std::ofstream ofs(destination.string(), std::ios::out | std::ios::binary);
+		std::ofstream ofs(output, std::ios::out | std::ios::binary);
 		liblas::Writer writer(ofs, header);
 		grid.write(writer);
 		
 		ofs.close();
 	}
 
-private: 
-	boost::filesystem::path source;
-	boost::filesystem::path destination;
+private:
+    const std::string input;
+    const std::string output;
+    const double tileSize;
 
-	double estimateSpacing(liblas::Reader reader) {
+	double estimateTileSize(liblas::Reader reader) {
 		liblas::Header const& header = reader.GetHeader();
 
 		liblas::Bounds<double> bounds = header.GetExtent();
@@ -198,50 +219,43 @@ private:
 		double volume = (bounds.maxx() - bounds.minx())
 			* (bounds.maxy() - bounds.miny())
 			* (bounds.maxz() - bounds.minz());
-		double spacing = std::pow(volume / points * approximatePointsPerTile, 1.0/3.0);
+		double tileSize = std::pow(volume / points * approximatePointsPerTile, 1.0/3.0);
 
-		std::cout << "Spacing: " << spacing << std::endl;
-
-		return spacing;
+		return tileSize;
 	}
 };
 
 int main(int argc, char **argv) {
-	std::vector<std::string> sources;
-	float size;
+    double tileSize;
+    std::string input;
+    std::string output;
 
-	po::options_description desc("options"); 
+	po::options_description desc("options");
+    po::positional_options_description p;
+    po::variables_map vm;
 	desc.add_options() 
-		("help,h", "prints usage")
-		("sources", po::value<std::vector<std::string> >(), "Source LAS/LAZ files.");
-	po::positional_options_description p; 
-	p.add("sources", -1); 
+		("help,h", "Prints usage")
+        ("size,s", po::value<double>(&tileSize)->default_value(0.0), "Tile size")
+        ("input,i", po::value<std::string>(&input), "Input LAS/LAZ file")
+        ("output,o", po::value<std::string>(&output)->default_value("sorted.las"), "Output LAS/LAZ file");
+    p.add("input", 1);
+    p.add("output", 1);
+    
+    try {
+        po::store(po::command_line_parser(argc, argv)
+            .options(desc)
+            .positional(p)
+            .run(), vm);
+        po::notify(vm);
 
-	po::variables_map vm; 
-	po::store(po::command_line_parser(argc, argv)
-		.options(desc)
-		.positional(p)
-		.run(), vm); 
-	po::notify(vm);
-
-	if(vm.count("help") || !vm.count("sources")) {
-		std::cout << desc << std::endl;
-		return 0;
-	}
-
-	if(vm.count("sources"))
-		sources = vm["sources"].as<std::vector<std::string> >();
-	else {
-		std::cerr << "source file parameter is missing" << std::endl;
-		return 1;
-	}
-
-	try {
-		for(int i = 0; i < sources.size(); i++) {
-			boost::filesystem::path source = boost::filesystem::path(sources[i]);
-			boost::filesystem::path destination = boost::filesystem::path(source.stem().string() + "-sorted" + source.extension().string());
-			Sorter(source, destination).sort();
-		}
+        if(vm.count("help") || !vm.count("input")) {
+            std::cout<< "USAGE: lassort [options] input" << std::endl;
+            std::cout << desc << std::endl;
+            return 0;
+        }
+        
+        Sorter(input, output, tileSize).sort();
+        
 	} catch (std::exception &e) {
 		std::cerr << "Error: " << e.what() << std::endl;
 	}
