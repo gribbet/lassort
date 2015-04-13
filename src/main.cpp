@@ -137,7 +137,7 @@ public:
 	}
 
 	void write(liblas::Writer &writer) {
-        std::cout << "Sorted 0%" << std::flush;
+        std::cout << "Merged 0%" << std::flush;
 		long written = 0;
 		long lastChunk = -1;
 		for(std::map<TileIndex, Tile*>::iterator it = tiles.begin();
@@ -146,11 +146,11 @@ public:
 			written += it->second->count();
 			if (written / 1000000 != lastChunk) {
 				lastChunk = written / 1000000;
-				std::cout << "\rSorted " << (100 * written / count) << "%" << std::flush;
+				std::cout << "\rMerged " << (100 * written / count) << "%" << std::flush;
 			}
 		}
 
-		std::cout << "\rSorted 100%" << std::endl;
+		std::cout << "\rMerged 100%" << std::endl;
 	}
     
     long tileCount() {
