@@ -209,7 +209,7 @@ public:
 
 		liblas::ReaderFactory factory;
 		liblas::Reader reader = factory.CreateWithStream(ifs);
-		liblas::Header header = reader.GetHeader();
+        liblas::Header header = reader.GetHeader();
 		
         double tileSize = this->tileSize;
         if (tileSize == 0.0)
@@ -262,8 +262,8 @@ int main(int argc, char **argv) {
 	desc.add_options() 
 		("help,h", "Prints usage")
         ("size,s", po::value<double>(&tileSize)->default_value(0.0), "Tile size")
-        ("input,i", po::value<std::string>(&input), "Input LAS/LAZ file")
-        ("output,o", po::value<std::string>(&output)->default_value("sorted.las"), "Output LAS/LAZ file");
+        ("input,i", po::value<std::string>(&input), "Input LAS file")
+        ("output,o", po::value<std::string>(&output)->default_value("sorted.las"), "Output LAS file");
     p.add("input", 1);
     p.add("output", 1);
     
