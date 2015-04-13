@@ -3,6 +3,7 @@ build.sh
 lassort.xcodeproj
 lassort.build
 Debug
+Release
 CMakeCache.txt
 CMakeFiles
 CMakeScripts
