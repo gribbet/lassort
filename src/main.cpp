@@ -102,9 +102,9 @@ private:
 
 class Grid {
 public:
-	Grid(double tileSize):
+    Grid(std::string workDir, double tileSize):
         tileSize(tileSize),
-        workDir(boost::filesystem::path("temp")),
+        workDir(boost::filesystem::path(workDir)),
         workDirCreated(boost::filesystem::create_directories(workDir)),
         count(0) {
 	}
@@ -198,9 +198,11 @@ class Sorter {
 public:
     Sorter(std::string input,
            std::string output,
+           std::string workDir,
            double tileSize = 0.0):
 		input(input),
         output(output),
+        workDir(workDir),
         tileSize(tileSize) {
 	}
 
@@ -215,7 +217,7 @@ public:
         if (tileSize == 0.0)
             tileSize = estimateTileSize(reader);
         
-		Grid grid(tileSize);
+		Grid grid(workDir, tileSize);
 		grid.read(reader);
 
 		ifs.close();
@@ -234,6 +236,7 @@ public:
 private:
     const std::string input;
     const std::string output;
+    const std::string workDir;
     const double tileSize;
 
 	double estimateTileSize(liblas::Reader reader) {
@@ -255,6 +258,7 @@ int main(int argc, char **argv) {
     double tileSize;
     std::string input;
     std::string output;
+    std::string workDir;
 
 	po::options_description desc("options");
     po::positional_options_description p;
@@ -263,7 +267,8 @@ int main(int argc, char **argv) {
 		("help,h", "Prints usage")
         ("size,s", po::value<double>(&tileSize)->default_value(0.0), "Tile size")
         ("input,i", po::value<std::string>(&input), "Input LAS file")
-        ("output,o", po::value<std::string>(&output)->default_value("sorted.las"), "Output LAS file");
+        ("output,o", po::value<std::string>(&output)->default_value("sorted.las"), "Output LAS file")
+        ("work-dir,w", po::value<std::string>(&workDir)->default_value("temp"));
     p.add("input", 1);
     p.add("output", 1);
     
@@ -280,7 +285,7 @@ int main(int argc, char **argv) {
             return 0;
         }
         
-        Sorter(input, output, tileSize).sort();
+        Sorter(input, output, workDir, tileSize).sort();
         
 	} catch (std::exception &e) {
 		std::cerr << "Error: " << e.what() << std::endl;
