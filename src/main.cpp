@@ -57,8 +57,11 @@ public:
 	void flush() {
 		if (points.size() == 0)
 			return;
-		if (writer == NULL)
-			writer = new liblas::Writer(ofs, liblas::Header(*points[0].GetHeader()));
+		if (writer == NULL) {
+			liblas::Header header = liblas::Header(*points[0].GetHeader());
+			header.SetCompressed(false);
+			writer = new liblas::Writer(ofs, header);
+		}
 		for (long i = 0; i < points.size(); i++)
 			writer->WritePoint(points[i]);
 		points.clear();
