@@ -290,7 +290,7 @@ int main(int argc, char **argv) {
 		po::notify(vm);
 
 		if(vm.count("help") || !vm.count("input")) {
-			std::cout<< "USAGE: lassort [options] input" << std::endl;
+			std::cout<< "USAGE: lassort [options] input output" << std::endl;
 			std::cout << desc << std::endl;
 			return 0;
 		}
