@@ -221,6 +221,8 @@ public:
 		liblas::Reader reader = factory.CreateWithStream(ifs);
 		liblas::Header header = reader.GetHeader();
 		
+		header.SetCompressed(boost::filesystem::path(output).extension() == ".laz");
+		
 		double tileSize = this->tileSize;
 		if (tileSize == 0.0)
 			tileSize = estimateTileSize(reader);
