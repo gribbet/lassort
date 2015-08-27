@@ -37,7 +37,7 @@ class Tile {
 public:
 	Tile(boost::filesystem::path workDir):
 		_count(0),
-        path(workDir / boost::filesystem::unique_path()),
+        path(workDir / boost::filesystem::unique_path("%%%%-%%%%-%%%%-%%%%.las")),
 		writer(NULL) {
 		ofs.open(path.string(), std::ios::out | std::ios::binary);
 	}
