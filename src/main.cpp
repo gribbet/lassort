@@ -286,8 +286,10 @@ int main(int argc, char **argv) {
         }
         
         Sorter(input, output, workDir, tileSize).sort();
-        
+        return 0;
+				
 	} catch (std::exception &e) {
 		std::cerr << "Error: " << e.what() << std::endl;
+		return -1;
 	}
 }
