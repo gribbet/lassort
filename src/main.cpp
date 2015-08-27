@@ -37,7 +37,7 @@ class Tile {
 public:
 	Tile(boost::filesystem::path workDir):
 		_count(0),
-	path(workDir / boost::filesystem::unique_path("%%%%-%%%%-%%%%-%%%%.las")),
+		path(workDir / boost::filesystem::unique_path("%%%%-%%%%-%%%%-%%%%.las")),
 		writer(NULL) {
 		ofs.open(path.string(), std::ios::out | std::ios::binary);
 	}
@@ -86,6 +86,10 @@ public:
 			writer.WritePoint(reader.GetPoint());
 
 		ifs.close();
+	}
+	
+	void remove() {
+		boost::filesystem::remove(path);
 	}
 
 private:
@@ -147,6 +151,7 @@ public:
 			it != tiles.end(); ++it) {
 			it->second->write(writer);
 			written += it->second->count();
+			it->second->remove();
 			if (written / 1000000 != lastChunk) {
 				lastChunk = written / 1000000;
 				std::cout << "\rMerged " << (100 * written / count) << "%" << std::flush;
