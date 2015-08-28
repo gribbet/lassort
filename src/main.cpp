@@ -37,15 +37,12 @@ class Tile {
 public:
 	Tile(boost::filesystem::path workDir):
 		_count(0),
-		path(workDir / boost::filesystem::unique_path("%%%%-%%%%-%%%%-%%%%.las")),
-		writer(NULL) {
+		path(workDir / boost::filesystem::unique_path("%%%%-%%%%-%%%%-%%%%.las")) {
 		ofs.open(path.string(), std::ios::out | std::ios::binary);
 	}
 
 	~Tile() {
 		flush();
-		if (writer != NULL)
-			delete writer;
 		boost::filesystem::remove(path);
 	}
 
@@ -57,15 +54,16 @@ public:
 	void flush() {
 		if (points.size() == 0)
 			return;
-		if (writer == NULL) {
-			liblas::Header header = liblas::Header(*points[0].GetHeader());
-			header.SetCompressed(false);
-			writer = new liblas::Writer(ofs, header);
-		}
+		
+		liblas::Header header = liblas::Header(*points[0].GetHeader());
+		header.SetCompressed(false);
+		liblas::Writer writer = liblas::Writer(ofs, header);
+		
 		for (long i = 0; i < points.size(); i++)
-			writer->WritePoint(points[i]);
+			writer.WritePoint(points[i]);
+		writeHeader(writer);
+		
 		points.clear();
-		writeHeader();
 	}
 
 	long const count() {
@@ -97,13 +95,12 @@ private:
 	std::vector<liblas::Point> points;
 	boost::filesystem::path path;
 	std::ofstream ofs;
-	liblas::Writer* writer;
 
-	void writeHeader() {
-		liblas::Header header(writer->GetHeader());
+	void writeHeader(liblas::Writer &writer) {
+		liblas::Header header(writer.GetHeader());
 		header.SetPointRecordsCount(count());
-		writer->SetHeader(header);
-		writer->WriteHeader();
+		writer.SetHeader(header);
+		writer.WriteHeader();
 	}
 };
 
