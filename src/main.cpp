@@ -115,9 +115,8 @@ public:
 
 	~Grid() {
 		flush();
-		for(std::map<TileIndex, Tile*>::iterator it = tiles.begin();
-			it != tiles.end(); ++it)
-			delete it->second;
+		for(auto pair: tiles)
+			delete pair.second;
 		tiles.clear();
 		if (workDirCreated)
 			boost::filesystem::remove(workDir);
@@ -144,11 +143,10 @@ public:
 		std::cout << "Merged 0%" << std::flush;
 		long written = 0;
 		long lastChunk = -1;
-		for(std::map<TileIndex, Tile*>::iterator it = tiles.begin();
-			it != tiles.end(); ++it) {
-			it->second->write(writer);
-			written += it->second->count();
-			it->second->remove();
+		for(auto pair: tiles) {
+			written += pair.second->count();
+			pair.second->write(writer);
+			pair.second->remove();
 			if (written / 1000000 != lastChunk) {
 				lastChunk = written / 1000000;
 				std::cout << "\rMerged " << (100 * written / count) << "%" << std::flush;
@@ -164,17 +162,15 @@ public:
 	
 	long averageTileCount() {
 		long total = 0;
-		for(std::map<TileIndex, Tile*>::iterator it = tiles.begin();
-			it != tiles.end(); ++it)
-			total += it->second->count();
+		for(auto pair: tiles)
+			total += pair.second->count();
 		return total /= tileCount();
 	}
 	
 	uintmax_t averageTileFileSize() {
 		uintmax_t total = 0;
-		for(std::map<TileIndex, Tile*>::iterator it = tiles.begin();
-			it != tiles.end(); ++it)
-			total += it->second->fileSize();
+		for(auto pair: tiles)
+			total += pair.second->fileSize();
 		return total /= tileCount();
 	}
 
@@ -193,9 +189,8 @@ private:
 	}
 
 	void flush() {
-		for(std::map<TileIndex, Tile*>::iterator it = tiles.begin();
-			it != tiles.end(); ++it)
-			it->second->flush();
+		for(auto pair: tiles)
+			pair.second->flush();
 	}
 };
 
