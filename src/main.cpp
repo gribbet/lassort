@@ -37,13 +37,12 @@ class Tile {
 public:
 	Tile(boost::filesystem::path workDir):
 		_count(0),
-		path(workDir / boost::filesystem::unique_path("%%%%-%%%%-%%%%-%%%%.las")) {
-		ofs.open(path.string(), std::ios::out | std::ios::binary);
+		path(workDir / boost::filesystem::unique_path("%%%%%%%%.las")) {
 	}
 
 	~Tile() {
 		flush();
-		boost::filesystem::remove(path);
+		remove();
 	}
 
 	void add(liblas::Point const &point) {
@@ -56,12 +55,17 @@ public:
 			return;
 		
 		liblas::Header header = liblas::Header(*points[0].GetHeader());
+		header.SetPointRecordsCount(_count);
 		header.SetCompressed(false);
-		liblas::Writer writer = liblas::Writer(ofs, header);
 		
-		for (long i = 0; i < points.size(); i++)
-			writer.WritePoint(points[i]);
-		writeHeader(writer);
+		std::ios::openmode mode = std::ios::out | std::ios::binary;
+		if (boost::filesystem::exists(path))
+			mode |= std::ios::in | std::ios::ate;
+		std::ofstream ofs(path.string(), mode);
+		
+		liblas::Writer writer = liblas::Writer(ofs, header);
+		for(auto point: points)
+			writer.WritePoint(point);
 		
 		points.clear();
 	}
@@ -76,7 +80,6 @@ public:
 
 	void write(liblas::Writer &writer) {
 		std::ifstream ifs(path.string(), std::ios::in | std::ios::binary);
-
 		liblas::ReaderFactory factory;
 		liblas::Reader reader = factory.CreateWithStream(ifs);
 
@@ -94,14 +97,6 @@ private:
 	long _count;
 	std::vector<liblas::Point> points;
 	boost::filesystem::path path;
-	std::ofstream ofs;
-
-	void writeHeader(liblas::Writer &writer) {
-		liblas::Header header(writer.GetHeader());
-		header.SetPointRecordsCount(count());
-		writer.SetHeader(header);
-		writer.WriteHeader();
-	}
 };
 
 class Grid {
