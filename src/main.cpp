@@ -4,12 +4,6 @@
 #include <boost/filesystem.hpp>
 #include <liblas/liblas.hpp>
 
-#include <stdio.h>
-#include <execinfo.h>
-#include <signal.h>
-#include <stdlib.h>
-#include <unistd.h>
-
 namespace po = boost::program_options;
 
 class TileIndex {
