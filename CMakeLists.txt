@@ -13,4 +13,4 @@ include_directories(include ${LIBLAS_INCLUDE_DIR} ${Boost_INCLUDE_DIRS})
 
 add_executable(lassort ${files})
 
-target_link_libraries(lassort ${LIBLAS_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${Boost_REGEX_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY})
+target_link_libraries(lassort ${LIBLAS_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${Boost_REGEX_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} -lstdc++)
