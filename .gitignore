@@ -1,5 +1,4 @@
 build
-build.sh
 lassort.xcodeproj
 lassort.build
 Debug
