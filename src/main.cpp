@@ -62,6 +62,7 @@ public:
 			writer.WritePoint(point);
 		
 		points.clear();
+		points.shrink_to_fit();
 	}
 
 	long const count() {
