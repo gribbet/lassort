@@ -3,6 +3,9 @@
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
 #include <liblas/liblas.hpp>
+#include <boost/random/uniform_real.hpp>
+#include <boost/random/variate_generator.hpp>
+#include <boost/random/lagged_fibonacci.hpp>
 
 namespace po = boost::program_options;
 
@@ -96,8 +99,9 @@ private:
 
 class Grid {
 public:
-	Grid(std::string workDir, double tileSize):
+	Grid(std::string workDir, double tileSize, double thin):
 		tileSize(tileSize),
+		thin(thin),
 		workDir(boost::filesystem::path(workDir)),
 		workDirCreated(boost::filesystem::create_directories(workDir)),
 		count(0) {
@@ -118,7 +122,10 @@ public:
 		long total = header.GetPointRecordsCount();
 		long read = 0;
 		while(reader.ReadNextPoint()) {
-			add(reader.GetPoint());
+			if (thin == 0.0 || random() > thin) {
+				add(reader.GetPoint());
+				count++;
+			}
 			if (++read % 1000000 == 0) {
 				flush();
 				std::cout << "\rTiled " << (100 * read / total) << "%" << std::flush;
@@ -126,7 +133,6 @@ public:
 		}
 		flush();
 		std::cout << "\rTiled 100%" << std::endl;
-		count += read;
 	}
 
 	void write(liblas::Writer &writer) {
@@ -144,6 +150,10 @@ public:
 		}
 
 		std::cout << "\rMerged 100%" << std::endl;
+	}
+	
+	long total() {
+		return count;
 	}
 	
 	long tileCount() {
@@ -165,11 +175,16 @@ public:
 	}
 
 private: 
-	const int tileSize;
+	const double tileSize;
+	const double thin;
 	const boost::filesystem::path workDir;
 	const bool workDirCreated;
 	long count;
 	std::map<TileIndex, Tile*> tiles;
+	typedef boost::lagged_fibonacci607 base_generator_type;
+	base_generator_type generator = base_generator_type();
+	boost::uniform_01<base_generator_type> random = 
+		boost::uniform_01<base_generator_type>(generator);
 
 	void add(liblas::Point const &point) {
 		TileIndex index(point, tileSize);
@@ -189,11 +204,13 @@ public:
 	Sorter(std::string input,
 		   std::string output,
 		   std::string workDir,
-		   double tileSize = 0.0):
+		   double tileSize = 0.0,
+		   double thin = 0.0):
 		input(input),
 		output(output),
 		workDir(workDir),
-		tileSize(tileSize) {
+		tileSize(tileSize),
+		thin(thin) {
 	}
 
 	void sort() {
@@ -209,10 +226,12 @@ public:
 		if (tileSize == 0.0)
 			tileSize = estimateTileSize(reader);
 		
-		Grid grid(workDir, tileSize);
+		Grid grid(workDir, tileSize, thin);
 		grid.read(reader);
 
 		ifs.close();
+		
+		header.SetPointRecordsCount(grid.total());
 		
 		std::cout << "Total tiles: " << grid.tileCount() << std::endl;
 		std::cout << "Average tile count: " << grid.averageTileCount() << std::endl;
@@ -230,6 +249,7 @@ private:
 	const std::string output;
 	const std::string workDir;
 	const double tileSize;
+	const double thin;
 
 	double estimateTileSize(liblas::Reader reader) {
 		liblas::Header const& header = reader.GetHeader();
@@ -248,6 +268,7 @@ private:
 
 int main(int argc, char **argv) {
 	double tileSize;
+	double thin;
 	std::string input;
 	std::string output;
 	std::string workDir;
@@ -258,6 +279,7 @@ int main(int argc, char **argv) {
 	desc.add_options() 
 		("help,h", "Prints usage")
 		("size,s", po::value<double>(&tileSize)->default_value(0.0), "Tile size")
+		("thin,t", po::value<double>(&thin)->default_value(0.0), "Thin percentage")
 		("input,i", po::value<std::string>(&input), "Input LAS file")
 		("output,o", po::value<std::string>(&output)->default_value("sorted.las"), "Output LAS file")
 		("work-dir,w", po::value<std::string>(&workDir)->default_value("temp"));
@@ -277,7 +299,7 @@ int main(int argc, char **argv) {
 			return 0;
 		}
 		
-		Sorter(input, output, workDir, tileSize).sort();
+		Sorter(input, output, workDir, tileSize, thin).sort();
 		return 0;
 				
 	} catch (std::exception &e) {
