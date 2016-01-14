@@ -34,7 +34,7 @@ class Tile {
 public:
 	Tile(boost::filesystem::path workDir):
 		_count(0),
-		path(workDir / boost::filesystem::unique_path("%%%%%%%%.las")) {
+		workDir(workDir) {
 	}
 
 	~Tile() {
@@ -51,21 +51,20 @@ public:
 		if (points.size() == 0)
 			return;
 		
-		liblas::Header header = liblas::Header(*points[0].GetHeader());
-		header.SetPointRecordsCount(_count);
+		auto header = liblas::Header(*points[0].GetHeader());
 		header.SetCompressed(false);
 		
-		std::ios::openmode mode = std::ios::out | std::ios::binary;
-		if (boost::filesystem::exists(path))
-			mode |= std::ios::in | std::ios::ate;
-		std::ofstream ofs(path.string(), mode);
+		auto path = boost::filesystem::path(workDir / boost::filesystem::unique_path("%%%%%%%%.las"));
+		std::ofstream ofs(path.string(), std::ios::out | std::ios::binary);
 		
-		liblas::Writer writer = liblas::Writer(ofs, header);
+		auto writer = liblas::Writer(ofs, header);
 		for(auto point: points)
 			writer.WritePoint(point);
 		
 		points.clear();
 		points.shrink_to_fit();
+		
+		paths.push_back(path);
 	}
 
 	long const count() {
@@ -73,10 +72,29 @@ public:
 	}
 	
 	uintmax_t const fileSize() {
-		return boost::filesystem::file_size(path);
+		uintmax_t size = 0;
+		for (auto path: paths)
+			size += boost::filesystem::file_size(path);
+		return size;
 	}
 
 	void write(liblas::Writer &writer) {
+		for (auto path: paths)
+			write(writer, path);
+	}
+	
+	void remove() {
+		for (auto path: paths)
+			boost::filesystem::remove(path);
+	}
+
+private:
+	long _count;
+	std::vector<liblas::Point> points;
+	std::vector<boost::filesystem::path> paths;
+	boost::filesystem::path workDir;
+	
+	void write(liblas::Writer &writer, boost::filesystem::path path) {
 		std::ifstream ifs(path.string(), std::ios::in | std::ios::binary);
 		liblas::ReaderFactory factory;
 		liblas::Reader reader = factory.CreateWithStream(ifs);
@@ -86,15 +104,6 @@ public:
 
 		ifs.close();
 	}
-	
-	void remove() {
-		boost::filesystem::remove(path);
-	}
-
-private:
-	long _count;
-	std::vector<liblas::Point> points;
-	boost::filesystem::path path;
 };
 
 class Grid {
@@ -256,7 +265,7 @@ private:
 
 		liblas::Bounds<double> bounds = header.GetExtent();
 		double approximatePointsPerTile = 2e6;
-		double points = header.GetPointRecordsCount();
+		double points = header.GetPointRecordsCount() * (1.0 - thin);
 		double volume = (bounds.maxx() - bounds.minx())
 			* (bounds.maxy() - bounds.miny())
 			* (bounds.maxz() - bounds.minz());
